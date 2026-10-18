@@ -6,6 +6,7 @@
 <title>Hue &amp; Joy — For the few days that matter</title>
 <meta name="description" content="Design-led holiday gifts and decor. Color for the few days that matter.">
 <meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -13,7 +14,11 @@
 </head>
 <body>
 <a class="skip" href="#app">Skip to content</a>
-<div class="demo-flag">Design demo · sample products · no real orders</div>
+<div class="demo-flag">
+  <span>Design demo · sample products · no real orders</span>
+  <label>Preview season <select id="seasonSel" aria-label="Preview season"></select></label>
+  <a href="#/brand">Brand kit</a>
+</div>
 <div class="announce" id="announce"></div>
 
 <header class="header">
@@ -21,35 +26,8 @@
     <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
     </button>
-    <a href="#/" class="logo" aria-label="Hue & Joy home">
-      <span class="logo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span>Hue <em>&amp;</em> Joy</span>
-    </a>
-    <nav class="nav" id="nav" aria-label="Main">
-      <a href="#/collection/valentines" class="nav-season">Valentine's Day</a>
-      <div class="nav-group">
-        <button class="nav-toggle" aria-expanded="false">Shop by Holiday</button>
-        <div class="nav-menu">
-          <a href="#/collection/valentines">Valentine's Day</a>
-          <a href="#/collection/easter">Easter</a>
-          <a href="#/collection/mothers">Mother's Day</a>
-          <a href="#/collection/everyday">Everyday Celebrations</a>
-        </div>
-      </div>
-      <div class="nav-group">
-        <button class="nav-toggle" aria-expanded="false">Gifts</button>
-        <div class="nav-menu">
-          <a href="#/collection/all?f=her">For Her</a>
-          <a href="#/collection/all?f=him">For Him</a>
-          <a href="#/collection/all?f=hosts">For Hosts</a>
-          <a href="#/collection/all?f=sets">Gift Sets</a>
-          <a href="#/collection/all?f=u40">Under $40</a>
-          <a href="#/collection/all?f=u75">Under $75</a>
-        </div>
-      </div>
-      <a href="#/collection/all">Shop All</a>
-      <a href="#/story">Our Story</a>
-    </nav>
+    <a href="#/" class="logo" data-logo aria-label="Hue & Joy home"></a>
+    <nav class="nav" id="nav" aria-label="Main"></nav>
     <div class="header-actions">
       <a href="#/collection/all" class="icon-btn" aria-label="Search products">
         <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -67,19 +45,14 @@
 <footer class="footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <a href="#/" class="logo logo-light"><span class="logo-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Hue <em>&amp;</em> Joy</span></a>
+      <a href="#/" class="logo logo-light" data-logo data-dark aria-label="Hue & Joy home"></a>
       <p>Color for the few days that matter. Packed by hand in Tennessee.</p>
     </div>
-    <div>
-      <h3>Shop</h3>
-      <a href="#/collection/valentines">Valentine's Day</a>
-      <a href="#/collection/easter">Easter</a>
-      <a href="#/collection/mothers">Mother's Day</a>
-      <a href="#/collection/everyday">Everyday Celebrations</a>
-    </div>
+    <div><h3>Shop</h3><div id="footShop"></div></div>
     <div>
       <h3>Help</h3>
       <a href="#/shipping">Shipping &amp; Delivery</a>
+      <a href="#/shipping/promise">On-Time Promise</a>
       <a href="#/returns">Returns</a>
       <a href="#/faq">FAQ</a>
       <a href="#/contact">Contact</a>
