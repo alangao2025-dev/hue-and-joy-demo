@@ -316,3 +316,9 @@ details p,details ul{color:var(--muted);font-size:.92rem;margin:10px 0 0}
 .gift-grid input,.gift-grid select{width:100%}
 @media(min-width:900px){.hero{align-items:stretch}.hero-copy{align-self:center}.hero-art{height:auto;min-height:560px}}
 @media(max-width:420px){.lockup .wm-big{font-size:2rem}.lockup .mark{width:60px;height:60px}}
+.gf{padding-bottom:70px}
+.gf-q{padding-top:26px}
+.gf-q h3{font-size:1.15rem;margin:0}
+.gf-chips{flex-wrap:wrap;padding-top:12px}
+.gf .toolbar{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}
+.gf-help{margin-top:40px;background:var(--oat-2);border-radius:var(--radius);padding:18px 20px;font-size:.95rem}

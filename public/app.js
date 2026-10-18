@@ -298,8 +298,7 @@ function renderChrome() {
     <a href="#/collection/${S}" class="nav-season">${HOLIDAYS[S].name}</a>
     <div class="nav-group"><button class="nav-toggle" aria-expanded="false">Shop by Holiday</button><div class="nav-menu">
       ${order.map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name} <span>${fmt(hDate(k))}</span></a>`).join('')}<a href="#/collection/everyday">Everyday Celebrations</a></div></div>
-    <div class="nav-group"><button class="nav-toggle" aria-expanded="false">Gifts</button><div class="nav-menu">
-      <a href="#/collection/all?f=her">For Her</a><a href="#/collection/all?f=him">For Him</a><a href="#/collection/all?f=hosts">For Hosts</a><a href="#/collection/all?f=sets">Gift Sets</a><a href="#/collection/all?f=u40">Under $40</a><a href="#/collection/all?f=u75">Under $75</a></div></div>
+    <a href="#/gifts">Gift Finder</a>
     <a href="#/collection/all">Shop All</a>
     <a href="#/story">Our Story</a>`;
   document.getElementById('footShop').innerHTML = order.map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name}</a>`).join('') + '<a href="#/collection/everyday">Everyday Celebrations</a>';
@@ -355,11 +354,11 @@ function homeView() {
     <div class="grid">${favs.map(card).join('')}</div>
   </div></section>
   <section class="section" style="padding-top:0"><div class="wrap">
-    <p class="eyebrow">Find the right gift</p><h2>Shop by Recipient</h2>
+    <div class="section-head"><div><p class="eyebrow">Find the right gift</p><h2>Shop by Recipient</h2></div><a class="link" href="#/gifts">Try the Gift Finder</a></div>
     <div class="recipients">
-      <a class="recipient" href="#/collection/all?f=her"><div class="disc">${disc('vases',[C.coral,C.rose],C.blush,'')}</div>For Her</a>
-      <a class="recipient" href="#/collection/all?f=him"><div class="disc">${disc('dish',[C.blue,C.cream],'#E1E7EC','')}</div>For Him</a>
-      <a class="recipient" href="#/collection/all?f=hosts"><div class="disc">${disc('napkins',[C.butter],C.butterL,'')}</div>For Hosts</a>
+      <a class="recipient" href="#/gifts?who=her"><div class="disc">${disc('vases',[C.coral,C.rose],C.blush,'')}</div>For Her</a>
+      <a class="recipient" href="#/gifts?who=him"><div class="disc">${disc('dish',[C.blue,C.cream],'#E1E7EC','')}</div>For Him</a>
+      <a class="recipient" href="#/gifts?who=hosts"><div class="disc">${disc('napkins',[C.butter],C.butterL,'')}</div>For Hosts</a>
       <a class="recipient" href="#/collection/all?f=sets"><div class="disc">${disc('giftbox',[C.coral,C.rose],C.oat,'')}</div>Gift Sets</a>
     </div>
   </div></section>
@@ -466,6 +465,32 @@ function productView(id) {
   </div>`;
 }
 
+const WHO = [['any','Anyone'],['her','Her'],['him','Him'],['hosts','A host']];
+const BUDGET = [['any','Any budget'],['u30','Under $30'],['30-60','$30–60'],['60','$60+']];
+function giftFinderView(q) {
+  const who = q.get('who') || 'any', occ = q.get('occ') || 'any', bud = q.get('budget') || 'any';
+  const occs = [['any','Any occasion'], ...ORDERED().slice(0,4).map(k => [k, HOLIDAYS[k].name]), ['everyday','Birthday & everyday']];
+  const href = (k, v) => { const o = {who, occ, budget:bud}; o[k] = v; return '#/gifts?' + new URLSearchParams(o).toString(); };
+  const group = (label, key, cur, opts) => `<div class="gf-q"><h3>${label}</h3><div class="chips gf-chips">${opts.map(([v,l]) => `<a class="chip" href="${href(key, v)}" aria-pressed="${cur === v}">${l}</a>`).join('')}</div></div>`;
+  const inBudget = p => bud === 'any' || (bud === 'u30' ? p.price < 30 : bud === '30-60' ? p.price >= 30 && p.price <= 60 : p.price > 60);
+  const order = [...ORDERED(), 'everyday'];
+  const list = PRODUCTS.filter(p => (who === 'any' || p.tags.includes(who)) && (occ === 'any' || p.hol === occ) && inBudget(p))
+    .sort((a,b) => (etaInfo(a).late - etaInfo(b).late) || (order.indexOf(a.hol) - order.indexOf(b.hol)) || (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
+  return `
+  <section class="col-hero tinted" style="--tint:${C.butterL}"><div class="wrap">
+    <p class="eyebrow">Gift Finder</p><h1>Three questions. One great gift.</h1>
+    <p>Tell us who it's for, the occasion and your budget. We'll show what arrives in time first, and we can even write the card.</p>
+  </div></section>
+  <div class="wrap gf">
+    ${group('Who is it for?', 'who', who, WHO)}
+    ${group('What\u2019s the occasion?', 'occ', occ, occs)}
+    ${group('Your budget', 'budget', bud, BUDGET)}
+    <div class="toolbar"><span>${list.length} gift idea${list.length === 1 ? '' : 's'}${occ !== 'any' && hDate(occ) ? ` for ${HOLIDAYS[occ].name}` : ''}</span>${who !== 'any' || occ !== 'any' || bud !== 'any' ? '<a class="link" href="#/gifts">Start over</a>' : ''}</div>
+    ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : `<div class="empty"><p>Nothing matches all three yet. Try a different budget, or browse our Gift Sets.</p><a class="btn" href="${href('budget','any')}">Show any budget</a></div>`}
+    <div class="gf-help"><b>Still not sure?</b> Gift Sets come wrapped with a handwritten note. <a class="link" href="#/collection/all?f=sets">See Gift Sets</a></div>
+  </div>`;
+}
+
 function storyView() {
   return `
   <section class="story-hero">${lockup('stack')}<h1 style="margin-top:28px">For the few days that matter.</h1><p>Why we started Hue &amp; Joy.</p></section>
@@ -555,11 +580,13 @@ function render() {
   else if (parts[0] === 'collection' && (HOLIDAYS[parts[1]] || parts[1] === 'all')) { html = collectionView(parts[1], q); title = `${HOLIDAYS[parts[1]] ? HOLIDAYS[parts[1]].name : 'Shop All'} — Hue & Joy`; }
   else if (parts[0] === 'product') { const p = byId(parts[1]); pstate.qty = 1; pstate.color = p && p.colors ? p.colors[0][0] : null; html = productView(parts[1]); if (p && p.colors) title = `${p.name} — Hue & Joy`; }
   else if (parts[0] === 'shipping') html = shippingView(parts[1]);
+  else if (parts[0] === 'gifts') { html = giftFinderView(q); title = 'Gift Finder — Hue & Joy'; }
   else html = ({story:storyView, returns:returnsView, faq:faqView, contact:contactView, policy:policyView, brand:brandView}[parts[0]] || notFound)();
   document.getElementById('app').innerHTML = html;
   document.title = title;
   closeAll();
-  if (!q.has('f') && !q.has('sort') && parts[1] !== 'promise') window.scrollTo(0,0);
+  if (path !== render.last && parts[1] !== 'promise') window.scrollTo(0,0);
+  render.last = path;
 }
 
 document.addEventListener('click', e => {
