@@ -109,14 +109,14 @@ function season() {
 }
 
 /* ---------- logo ---------- */
-function mark(size = 40, dark = false) {
-  const blend = dark ? '' : 'style="mix-blend-mode:multiply"';
-  return `<svg class="mark" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><g style="isolation:isolate"><circle cx="24" cy="25" r="16" fill="${C.rose}" ${blend}/><circle cx="40" cy="25" r="16" fill="${C.coral}" ${blend} ${dark ? 'opacity=".9"' : ''}/><circle cx="32" cy="39" r="16" fill="${C.butter}" ${blend} ${dark ? 'opacity=".85"' : ''}/></g></svg>`;
+const MARK_BODY = `<rect x="25" y="54" width="70" height="52" rx="11" fill="#E8664A"/><rect x="18" y="38" width="84" height="20" rx="8" fill="#D4573D"/><rect x="33" y="38" width="10" height="68" fill="#F2D98B"/><rect x="77" y="38" width="10" height="68" fill="#F2D98B"/><rect x="33" y="43" width="54" height="10" fill="#F2D98B"/><g fill="none" stroke="#F2D98B" stroke-width="6"><ellipse cx="50" cy="32" rx="10" ry="6.5" transform="rotate(-24 50 32)"/><ellipse cx="70" cy="32" rx="10" ry="6.5" transform="rotate(24 70 32)"/></g><circle cx="60" cy="37" r="4.5" fill="#F2D98B"/><path d="M43 78Q57 93 73 78V64" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+function mark(size = 40) {
+  return `<svg class="mark" viewBox="18 18 84 90" width="${size}" height="${size}" aria-hidden="true">${MARK_BODY}</svg>`;
 }
 const wordmark = () => `<span class="wm">Hue <em>&amp;</em> Joy</span>`;
 function lockup(kind = 'h', dark = false) {
-  if (kind === 'stack') return `<div class="lockup-stack ${dark ? 'dark' : ''}">${mark(96, dark)}<div class="wm-big">Hue <em>&amp;</em> Joy</div><div class="tagline">For the few days that matter</div></div>`;
-  return `<div class="lockup ${dark ? 'dark' : ''}">${mark(72, dark)}<div><div class="wm-big">Hue <em>&amp;</em> Joy</div><div class="tagline">For the few days that matter</div></div></div>`;
+  if (kind === 'stack') return `<div class="lockup-stack ${dark ? 'dark' : ''}">${mark(110)}<div class="wm-big">Hue <em>&amp;</em> Joy</div><div class="tagline">For the few days that matter</div></div>`;
+  return `<div class="lockup ${dark ? 'dark' : ''}">${mark(80)}<div><div class="wm-big">Hue <em>&amp;</em> Joy</div><div class="tagline">For the few days that matter</div></div></div>`;
 }
 
 /* ---------- art ---------- */
@@ -154,7 +154,7 @@ function art(p, view = 'main', label = '') {
   const aria = `role="img" aria-label="${label || p.name}"`;
   if (view === 'scene') return `<svg viewBox="0 0 400 400" ${aria} preserveAspectRatio="xMidYMid slice"><rect width="400" height="400" fill="${C.oat}"/><rect y="290" width="400" height="110" fill="${C.wood}"/><rect y="290" width="400" height="6" fill="${C.woodD}" opacity=".5"/><path d="M50 290Q45 230 60 190" stroke="${C.pine}" stroke-width="2" fill="none"/><ellipse cx="62" cy="200" rx="7" ry="14" fill="${C.sage}" transform="rotate(20 62 200)"/><ellipse cx="50" cy="235" rx="7" ry="14" fill="${C.sage}" transform="rotate(-25 50 235)"/><g transform="translate(40 20) scale(.85)">${shape}</g></svg>`;
   if (view === 'detail') return `<svg viewBox="0 0 400 400" ${aria}><rect width="400" height="400" fill="${p.bg}"/><g transform="translate(-180 -230) scale(1.9)">${shape}</g></svg>`;
-  if (view === 'gift') return `<svg viewBox="0 0 400 400" ${aria}><rect width="400" height="400" fill="${C.oat}"/>${SHAPES.giftbox([C.white, C.coral])}<text x="200" y="262" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" fill="${C.ink}">Hue &amp; Joy</text><g transform="translate(184 268) scale(.5)" style="isolation:isolate"><circle cx="24" cy="25" r="16" fill="${C.rose}" style="mix-blend-mode:multiply"/><circle cx="40" cy="25" r="16" fill="${C.coral}" style="mix-blend-mode:multiply"/><circle cx="32" cy="39" r="16" fill="${C.butter}" style="mix-blend-mode:multiply"/></g></svg>`;
+  if (view === 'gift') return `<svg viewBox="0 0 400 400" ${aria}><rect width="400" height="400" fill="${C.oat}"/>${SHAPES.giftbox([C.white, C.coral])}<g transform="translate(132 215) scale(.55)">${MARK_BODY}</g><text x="248" y="262" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" fill="${C.ink}">Hue &amp;</text><text x="248" y="280" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" fill="${C.ink}">Joy</text></svg>`;
   return `<svg viewBox="0 0 400 400" ${aria}><rect width="400" height="400" fill="${p.bg}"/>${shape}</svg>`;
 }
 function heroArt(k) {
@@ -293,7 +293,7 @@ function toast(msg) {
 /* ---------- chrome ---------- */
 function renderChrome() {
   const S = season(), order = ORDERED();
-  document.querySelectorAll('[data-logo]').forEach(el => { el.innerHTML = mark(el.hasAttribute('data-dark') ? 34 : 30, el.hasAttribute('data-dark')) + wordmark(); });
+  document.querySelectorAll('[data-logo]').forEach(el => { el.innerHTML = mark(el.hasAttribute('data-dark') ? 36 : 34) + wordmark(); });
   document.getElementById('nav').innerHTML = `
     <a href="#/collection/${S}" class="nav-season">${HOLIDAYS[S].name}</a>
     <div class="nav-group"><button class="nav-toggle" aria-expanded="false">Shop by Holiday</button><div class="nav-menu">
@@ -504,7 +504,7 @@ function storyView() {
       <div><h3>On time, honestly</h3><p>We show a real delivery date before you buy, and if we miss the day, we make it right.</p></div>
     </div>
     <h2>The meaning of the mark</h2>
-    <p>Three colors overlap and make new ones where they meet, the way people do on the days that matter. That's the hue, and the joy.</p>
+    <p>A gift box, tied with a ribbon shaped like an H, smiling a smile shaped like a J. Every order is a little hue, and a little joy.</p>
     <h2>Packed by hand in Tennessee</h2>
     <p>Our favorite pieces ship from a small packing table in Tennessee, where each gift is wrapped and every handwritten note is written by a real person.</p>
     <p style="margin-top:30px"><a href="#/collection/${season()}" class="btn">Shop the season</a></p>
@@ -553,13 +553,13 @@ function brandView() {
   const sw = [['Warm White',C.white],['Oat',C.oat],['Charcoal',C.ink],['Joy Coral',C.coral],['Deep Coral',C.deep],['Rose',C.rose],['Butter',C.butter],['Sage',C.sage]];
   const hol = [['Halloween',C.pumpkin],['Christmas',C.pine],['Christmas',C.cranberry],['New Year',C.gold],['Mother\u2019s Day',C.lilac],['Father\u2019s Day',C.blue]];
   return `<div class="page brand"><p class="eyebrow">Brand kit · draft</p><h1>Hue &amp; Joy</h1>
-  <p>The mark: three colors overlap and create new hues where they meet, like people coming together on the days that matter.</p>
+  <p>The mark: a gift box whose ribbon forms an H and whose smile curls up into a J. Hue &amp; Joy, wrapped together.</p>
   <h2>Logo</h2>
   <div class="brand-grid">
     <div class="brand-tile" id="logo-h">${lockup()}</div>
     <div class="brand-tile" id="logo-stack">${lockup('stack')}</div>
     <div class="brand-tile dark" id="logo-dark">${lockup('h', true)}</div>
-    <div class="brand-tile coral" id="logo-mark"><div class="mark-solo">${mark(120)}</div></div>
+    <div class="brand-tile coral" id="logo-mark"><div class="mark-solo">${mark(140)}</div></div>
   </div>
   <h2>Core colors</h2><div class="swatch-row">${sw.map(([n,h]) => `<div><span style="background:${h}"></span><b>${n}</b><small>${h}</small></div>`).join('')}</div>
   <h2>Holiday accents</h2><div class="swatch-row">${hol.map(([n,h]) => `<div><span style="background:${h}"></span><b>${n}</b><small>${h}</small></div>`).join('')}</div>
