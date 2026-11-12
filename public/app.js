@@ -28,12 +28,15 @@ const SOURCES = {
   tn:{label:'Ships from Tennessee', short:'Tennessee', proc:2, min:2, max:5, buffer:1},
   tnx:{label:'Express from Tennessee', short:'Tennessee Express', proc:1, min:1, max:2, buffer:1, fee:14},
   us:{label:'Ships from our US warehouse', short:'US warehouse', proc:2, min:3, max:7, buffer:2},
-  cn:{label:'Ships from our partner studio', short:'Partner studio', proc:3, min:8, max:15, buffer:3}
+  cn:{label:'Ships from our overseas partner', short:'Overseas partner', proc:3, min:8, max:15, buffer:3}
 };
 const CNY = [{start:d(2027,1,25), end:d(2027,2,15), days:21}];
 const PEAK = [[d(2026,11,23), d(2026,12,24)], [d(2027,11,22), d(2027,12,24)]];
 const PEAK_DAYS = 2;
 const EXPRESS_FEE = 14;
+const STD_SHIP = 5.95;
+const MIN_ITEMS = 2; // live store: hide a holiday from navigation until it has at least 4 products
+const TN_DAILY_CAP = 15; // live store: above this, new orders move from the garage to the US warehouse
 
 /* ---------- products ---------- */
 const PRODUCTS = [
@@ -102,6 +105,8 @@ function etaInfo(p) {
   return {e, late, text, h, hd, cut, xcut};
 }
 const ORDERED = () => Object.keys(HOLIDAYS).filter(k => hDate(k)).sort((a,b) => hDate(a) - hDate(b));
+const count = k => PRODUCTS.filter(p => p.hol === k).length;
+const NAVHOL = () => ORDERED().filter(k => count(k) >= MIN_ITEMS).slice(0, 3);
 function season() {
   const pick = sessionStorage.getItem('hj-season');
   if (pick && HOLIDAYS[pick]) return pick;
@@ -262,7 +267,7 @@ function renderDrawer() {
       ${upsell ? `<div class="upsell"><div class="thumb">${art(upsell)}</div><div><b>Complete the gift</b><br>${esc(upsell.name)} · ${money(upsell.price)}</div><button data-act="upsell" data-id="${upsell.id}">Add</button></div>` : ''}
       ` : `<div class="empty"><p>Your cart is empty.</p><a href="#/collection/${S}" class="btn" data-act="close">Shop ${HOLIDAYS[S].name}</a></div>`}
     </div>
-    ${cart.length ? `<div class="drawer-foot"><div class="subtotal"><span>Subtotal</span><span>${money(sub)}</span></div><div class="tax-note">Taxes calculated at checkout. ${left ? 'Shipping from $5.95.' : 'Free US shipping.'} Covered by our <a class="link" href="#/shipping/promise" data-act="close">On-Time Promise</a>.</div>
+    ${cart.length ? `<div class="drawer-foot"><div class="subtotal"><span>Subtotal</span><span>${money(sub)}</span></div><div class="ship-line"><span>Shipping</span><span>${left ? money(STD_SHIP) : 'Free'}</span></div><div class="tax-note">Taxes calculated at checkout.${[...sources].includes('tn') ? ` Express from Tennessee +$${EXPRESS_FEE} at checkout.` : ''} Covered by our <a class="link" href="#/shipping/promise" data-act="close">On-Time Promise</a>.</div>
       <button class="btn btn-block" data-act="checkout">Checkout</button>
       <div class="express"><span>Shop Pay</span><span>PayPal</span><span>Apple Pay</span></div></div>` : ''}`;
   const dr = document.getElementById('gDraft');
@@ -297,11 +302,12 @@ function renderChrome() {
   document.getElementById('nav').innerHTML = `
     <a href="#/collection/${S}" class="nav-season">${HOLIDAYS[S].name}</a>
     <div class="nav-group"><button class="nav-toggle" aria-expanded="false">Shop by Holiday</button><div class="nav-menu">
-      ${order.map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name} <span>${fmt(hDate(k))}</span></a>`).join('')}<a href="#/collection/everyday">Everyday Celebrations</a></div></div>
+      ${NAVHOL().map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name} <span>${fmt(hDate(k))}</span></a>`).join('')}<a href="#/collection/everyday">Everyday Celebrations</a><a href="#/holidays" class="nav-all">All holidays &amp; order-by dates</a></div></div>
     <a href="#/gifts">Gift Finder</a>
     <a href="#/collection/all">Shop All</a>
-    <a href="#/story">Our Story</a>`;
-  document.getElementById('footShop').innerHTML = order.map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name}</a>`).join('') + '<a href="#/collection/everyday">Everyday Celebrations</a>';
+    <a href="#/story">Our Story</a>
+    <a href="#/track" class="nav-mobile-only">Track your order</a>`;
+  document.getElementById('footShop').innerHTML = NAVHOL().map(k => `<a href="#/collection/${k}">${HOLIDAYS[k].name}</a>`).join('') + '<a href="#/collection/everyday">Everyday Celebrations</a>';
   const sel = document.getElementById('seasonSel');
   const pick = sessionStorage.getItem('hj-season') || '';
   sel.innerHTML = `<option value="">Auto (by date)</option>` + [...order, 'everyday'].map(k => `<option value="${k}" ${pick === k ? 'selected' : ''}>${HOLIDAYS[k].name}</option>`).join('');
@@ -314,27 +320,30 @@ function renderChrome() {
 /* ---------- views ---------- */
 function card(p) {
   const eta = etaInfo(p);
-  const badge = p.badge || (p.src === 'tn' ? 'Ships from TN' : p.isNew ? 'New' : '');
+  const badge = p.badge || (p.src === 'tn' ? 'Ships from TN' : '');
   const etaLine = eta.late ? (eta.xcut ? `Express by ${fmt(eta.xcut)} for ${eta.h.name}` : `Arrives after ${eta.h.name}`) : eta.text;
   return `<a class="card" href="#/product/${p.id}">
     <div class="card-media">${badge ? `<span class="badge">${badge}</span>` : ''}${art(p)}<div class="alt">${art(p,'scene')}</div></div>
     <h3 class="card-title">${p.name}</h3><div class="card-price">${money(p.price)}</div>
     <div class="card-eta ${eta.late ? 'warn' : ''}">${etaLine}</div></a>`;
 }
+function calItem(k) {
+  const hd = hDate(k), cut = cutoff('tn', hd), soon = count(k) < MIN_ITEMS;
+  return `<a class="cal-item${soon ? ' soon' : ''}" href="${soon ? '#/holidays' : `#/collection/${k}`}" style="--tint:${HOLIDAYS[k].tint}">
+      <div class="cal-art">${mini(k)}</div><div class="cal-copy"><b>${HOLIDAYS[k].name}</b><span>${fmt(hd)} · in ${daysUntil(hd)} days</span><small>${soon ? 'Collection coming soon' : cut ? `Order by ${fmt(cut)}` : 'Express only'}</small></div></a>`;
+}
 function calendarStrip() {
   return `<section class="section cal-sec"><div class="wrap">
     <div class="section-head"><div><p class="eyebrow">Coming up</p><h2>The days that matter</h2></div><a class="link" href="#/shipping">All order-by dates</a></div>
-    <div class="cal">${ORDERED().map(k => { const hd = hDate(k), cut = cutoff('tn', hd); return `<a class="cal-item" href="#/collection/${k}" style="--tint:${HOLIDAYS[k].tint}">
-      <div class="cal-art">${mini(k)}</div><div class="cal-copy"><b>${HOLIDAYS[k].name}</b><span>${fmt(hd)} · in ${daysUntil(hd)} days</span><small>${cut ? `Order by ${fmt(cut)}` : 'Express only'}</small></div></a>`; }).join('')}</div>
+    <div class="cal">${ORDERED().map(calItem).join('')}</div>
   </div></section>`;
 }
 function homeView() {
   const S = season(), h = HOLIDAYS[S], hd = hDate(S);
-  let favs = PRODUCTS.filter(p => p.hol === S).sort((a,b) => (a.src === 'tn' ? 0 : 1) - (b.src === 'tn' ? 0 : 1));
+  let favs = PRODUCTS.filter(p => p.hol === S && p.src !== 'cn').sort((a,b) => (a.src === 'tn' ? 0 : 1) - (b.src === 'tn' ? 0 : 1));
   const need = favs.length < 4 ? 4 - favs.length : favs.length % 2;
-  if (need) favs = favs.concat(PRODUCTS.filter(p => p.hol === 'everyday').slice(0, need));
+  if (need) favs = favs.concat(PRODUCTS.filter(p => p.hol === 'everyday' && p.src !== 'cn').slice(0, need));
   const next = ORDERED().filter(k => k !== S).slice(0, 2);
-  const nextProducts = PRODUCTS.filter(p => next.includes(p.hol)).slice(0, 4);
   const set = PRODUCTS.find(p => p.badge && p.hol === S) || PRODUCTS.find(p => p.badge && next.includes(p.hol)) || byId('celebration-gift-set');
   return `
   <section class="hero">
@@ -353,32 +362,22 @@ function homeView() {
     <div class="section-head"><div><p class="eyebrow">${h.name}</p><h2>${S === 'everyday' ? 'Favorites' : `${h.name} Favorites`}</h2></div><a class="link" href="#/collection/${S}">View all</a></div>
     <div class="grid">${favs.map(card).join('')}</div>
   </div></section>
-  <section class="section" style="padding-top:0"><div class="wrap">
-    <div class="section-head"><div><p class="eyebrow">Find the right gift</p><h2>Shop by Recipient</h2></div><a class="link" href="#/gifts">Try the Gift Finder</a></div>
-    <div class="recipients">
-      <a class="recipient" href="#/gifts?who=her"><div class="disc">${disc('vases',[C.coral,C.rose],C.blush,'')}</div>For Her</a>
-      <a class="recipient" href="#/gifts?who=him"><div class="disc">${disc('dish',[C.blue,C.cream],'#E1E7EC','')}</div>For Him</a>
-      <a class="recipient" href="#/gifts?who=hosts"><div class="disc">${disc('napkins',[C.butter],C.butterL,'')}</div>For Hosts</a>
-      <a class="recipient" href="#/collection/all?f=sets"><div class="disc">${disc('giftbox',[C.coral,C.rose],C.oat,'')}</div>Gift Sets</a>
-    </div>
-  </div></section>
+  <section class="section" style="padding-top:0"><div class="wrap"><div class="gf-band">
+    <div><p class="eyebrow">Not sure what to get?</p><h2>Three questions. One great gift.</h2><p>Who it's for, the occasion and your budget. We'll show what arrives in time, and we can even write the card.</p></div>
+    <div class="gf-band-links"><a class="chip" href="#/gifts?who=her">For her</a><a class="chip" href="#/gifts?who=him">For him</a><a class="chip" href="#/gifts?who=hosts">For a host</a><a class="chip" href="#/collection/all?f=sets">Gift Sets</a><a class="btn" href="#/gifts">Open the Gift Finder</a></div>
+  </div></div></section>
   <section class="section" style="padding-top:0"><div class="wrap">
     <a class="banner" href="#/product/${set.id}" style="text-decoration:none">
       <div class="art">${art(set,'scene')}</div>
       <div class="copy"><p class="eyebrow">The Gift Sets</p><h2>Ready to give.<br>No wrapping required.</h2><p>Curated sets in our signature box, with a handwritten note from Tennessee. Tell us who it's for and we'll even write the message.</p><span class="btn" style="align-self:flex-start">Shop Gift Sets</span></div>
     </a>
   </div></section>
-  ${nextProducts.length ? `<section class="section" style="padding-top:0"><div class="wrap">
-    <div class="section-head"><div><p class="eyebrow">Plan ahead</p><h2>Coming up next</h2></div></div>
-    <div class="grid">${nextProducts.map(card).join('')}</div></div></section>` : ''}
-  <section class="section" style="padding-top:20px"><div class="wrap story-short">
-    <div class="art">${lockup('stack')}</div>
-    <div><p class="eyebrow">Our Story</p><blockquote>“Life is mostly ordinary days. We make the few that matter full of color.”</blockquote><p style="color:var(--muted)">Hue &amp; Joy is a small team choosing pieces we would be proud to give, and packing them by hand in Tennessee.</p><a href="#/story" class="link">Read our story</a></div>
-  </div></section>
   <section class="section newsletter"><div class="wrap">
+    <blockquote class="nl-quote">“Life is mostly ordinary days. We make the few that matter full of color.”</blockquote>
     <h2>Never miss the days that matter.</h2>
     <p>We'll send a gentle reminder before every holiday, plus free shipping on your first order.</p>
     <form class="nl-form" data-form="newsletter"><label class="skip" for="nlEmail">Email</label><input id="nlEmail" type="email" required placeholder="Your email"><button class="btn">Remind me</button></form>
+    <p class="nl-story"><a class="link" href="#/story">Read our story</a> · packed by hand in Tennessee</p>
   </div></section>`;
 }
 
@@ -388,7 +387,7 @@ function collectionView(slug, q) {
   const h = HOLIDAYS[slug], hd = h && hDate(slug);
   const f = q.get('f') || 'all', sort = q.get('sort') || 'featured';
   let list = PRODUCTS.filter(p => (slug === 'all' || p.hol === slug) && matchFilter(p, f));
-  if (slug === 'all' && sort === 'featured') { const o = [...ORDERED(), 'everyday']; list.sort((a,b) => o.indexOf(a.hol) - o.indexOf(b.hol)); }
+  if (sort === 'featured') { const o = [...ORDERED(), 'everyday']; list.sort((a,b) => ((a.src === 'cn') - (b.src === 'cn')) || (slug === 'all' ? o.indexOf(a.hol) - o.indexOf(b.hol) : 0)); }
   if (sort === 'price-asc') list.sort((a,b) => a.price - b.price);
   if (sort === 'price-desc') list.sort((a,b) => b.price - a.price);
   if (sort === 'new') list.sort((a,b) => (b.isNew?1:0) - (a.isNew?1:0));
@@ -411,7 +410,7 @@ function collectionView(slug, q) {
     ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : '<p class="empty">Nothing here yet. Try another filter.</p>'}
     <div class="section" style="padding-bottom:70px">
       <h2 style="font-size:1.5rem">Good to know</h2>
-      <details><summary>Will it arrive in time?</summary><p>Every product shows an estimated delivery date before you buy, and our order-by dates already include extra days for carrier delays. Order by the date shown and it's covered by our On-Time Promise.</p></details>
+      <details><summary>Will it arrive in time?</summary><p>Every product shows an estimated delivery date before you buy, and our order-by dates already include extra days for carrier delays. Order by the date shown and it's covered by our <a class="link" href="#/shipping/promise">On-Time Promise</a> (terms apply).</p></details>
       <details><summary>Can you write the card for me?</summary><p>Yes. Tick "This is a gift" in your cart, choose "Write it for me", and tell us who it's for. We'll email you a preview before it ships.</p></details>
       <details><summary>What if they don't love it?</summary><p>Returns are easy within 30 days of delivery.</p></details>
     </div>
@@ -436,32 +435,34 @@ function productView(id) {
       <div>
         <p class="eyebrow">${h.name}${p.tags.includes('her') ? ' · Gifts for Her' : p.tags.includes('him') ? ' · Gifts for Him' : p.tags.includes('hosts') ? ' · For Hosts' : ''}</p>
         <h1>${p.name}</h1>
-        <div class="reviews-mini">New arrival · <a class="link" href="#reviews" data-act="toreviews">Be the first to review</a></div>
+        <div class="reviews-mini">${p.src === 'tn' ? 'Packed by hand in Tennessee' : 'Checked against our approved sample'} · New this season</div>
         <div class="price">${money(p.price)}</div>
         <div class="installments">or 4 interest-free payments of ${money(Math.round(p.price / 4 * 100) / 100)} with Shop Pay</div>
         ${p.colors.length > 1 ? `<div class="opt-label">Color: <b id="colorName">${p.colors[0][0]}</b></div><div class="swatches">${p.colors.map(([n,hex],i) => `<button class="swatch" style="background:${hex}" data-act="color" data-n="${n}" aria-label="${n}" aria-pressed="${i === 0}"></button>`).join('')}</div>` : ''}
         <div class="opt-label">Quantity</div>
         <div class="qty"><button data-act="pqty" data-d="-1" aria-label="Decrease">−</button><span id="pqty">1</span><button data-act="pqty" data-d="1" aria-label="Increase">+</button></div>
         <div class="eta-box">
-          <div class="row"><span class="dot ${eta.late ? 'warn' : ''}"></span><div><b>${eta.text}</b> if you order today<small>${src.label}${eta.e.peak ? ' · includes holiday-season carrier buffer' : ''}${eta.e.cny ? ' · includes Lunar New Year studio closure' : ''}</small>
+          <div class="row"><span class="dot ${eta.late ? 'warn' : ''}"></span><div><b>${eta.text}</b> if you order today<small>${src.label}${eta.e.peak ? ' · includes holiday-season carrier buffer' : ''}${eta.e.cny ? ' · includes Lunar New Year closure overseas' : ''}</small>
             ${eta.hd ? (eta.cut ? `<small class="ok">Order by <b>${fmt(eta.cut)}</b> for ${h.name}. Covered by our <a class="link" href="#/shipping/promise">On-Time Promise</a>.</small>` : `<small class="bad">Standard shipping won't make ${h.name}.${eta.xcut ? '' : ' Try items marked "Ships from TN".'}</small>`) : ''}</div></div>
           ${xe ? `<div class="row"><span class="dot"></span><div><b>Need it faster?</b> Express arrives by ${fmt(xe.max)} (+$${EXPRESS_FEE} at checkout)${eta.hd && eta.xcut ? `<small>Express order-by date for ${h.name}: <b>${fmt(eta.xcut)}</b></small>` : ''}</div></div>` : ''}
-          ${p.src === 'tn' ? `<div class="row"><label class="giftwrap"><input type="checkbox" id="wrap"> <span><b>Add gift wrap + handwritten note (+$5)</b><small>Wrapped by hand in our signature paper</small></span></label></div>` : ''}
+          <div class="row"><label class="giftwrap"><input type="checkbox" id="pdpGift" ${giftState().on ? 'checked' : ''}> <span><b>This is a gift — include a free card</b><small>Write your own, or <b>let us write it for you</b>. You'll add the details in your cart.</small></span></label></div>
+          ${p.src === 'tn' ? `<div class="row"><label class="giftwrap"><input type="checkbox" id="wrap"> <span><b>Add gift wrap + handwritten note (+$5)</b><small>Wrapped by hand in our signature paper</small></span></label></div>`
+            : `<div class="row disabled"><label class="giftwrap"><input type="checkbox" disabled> <span><b>Gift wrap + handwritten note (+$5)</b><small>Available on items that ship from Tennessee. This item still includes your free printed card.</small></span></label></div>`}
         </div>
         <button class="btn btn-block" data-act="add" data-id="${p.id}">Add to Cart</button>
-        <button class="btn btn-block btn-shop" data-act="checkout">Buy with Shop Pay</button>
-        <ul class="perks"><li>Free US shipping over $${FREE_SHIP}</li><li>Free gift card: write your own, or let us write it for you</li><li>30-day easy returns</li></ul>
+        <button class="shoppay-link" data-act="checkout">or buy now with <b>Shop Pay</b></button>
+        <ul class="perks"><li>Shipping $${STD_SHIP} · free over $${FREE_SHIP}${p.src === 'tn' ? ` · Express +$${EXPRESS_FEE}` : ''}</li><li>Free gift card: write your own, or we\u2019ll write it</li><li>30-day easy returns</li></ul>
         <p class="gift-line">${p.line}</p>
-        <ul class="love">${p.love.map(x => `<li>${x}</li>`).join('')}</ul>
+        <h3 class="why-h">Why it\u2019s worth it</h3><ul class="love">${p.love.map(x => `<li>${x}</li>`).join('')}</ul><p class="why-note">Every piece is checked against a sample we approved before it ships, and arrives ready to give.</p>
         <details><summary>Details &amp; Dimensions</summary><p>${p.details}</p></details>
         <details><summary>Materials &amp; Care</summary><p>${p.care}</p></details>
-        <details><summary>Shipping &amp; On-Time Promise</summary><p>${src.label}. Processing ${src.proc} business days, then ${src.min}–${src.max} days in transit. Our holiday order-by dates include ${src.buffer} extra day${src.buffer > 1 ? 's' : ''} of buffer. If an order placed by the order-by date misses the holiday, we refund your shipping, send a printable "gift on its way" card and add a $15 credit, or refund in full if you prefer. <a class="link" href="#/shipping/promise">Read the promise</a></p></details>
+        <details><summary>Shipping &amp; On-Time Promise</summary><p>Shipping is $${STD_SHIP}, free on orders over $${FREE_SHIP}. ${src.label}. Processing ${src.proc} business days, then ${src.min}–${src.max} days in transit. Our holiday order-by dates include ${src.buffer} extra day${src.buffer > 1 ? 's' : ''} of buffer. If an order placed by the order-by date misses the holiday, we refund your shipping, send a printable "gift on its way" card and add a $15 credit, or refund in full if you prefer. Terms apply. <a class="link" href="#/shipping/promise">Read the promise</a></p></details>
         <details><summary>Returns</summary><p>Return within 30 days of delivery. Unused items in original packaging.</p></details>
         ${p.safety ? `<details><summary>Safety</summary><p>Never leave a burning candle unattended. Burn within sight, away from things that catch fire, children and pets. Burn no longer than 4 hours at a time.</p></details>` : ''}
       </div>
     </div>
     <section class="section" style="padding-top:20px"><h2>Complete the gift</h2><div class="grid">${related.map(card).join('')}</div></section>
-    <section class="section" id="reviews" style="padding-top:0"><h2>Reviews</h2><div class="no-reviews">No reviews yet. Reviews will appear here after customers receive their orders.</div></section>
+    <section class="section" style="padding-top:0"><div class="tn-card"><div class="tn-art">${art(p,'gift','Packed in Tennessee')}</div><div><p class="eyebrow">Packed by hand in Tennessee</p><h2>A real table, real people.</h2><p>Our favorite pieces are checked, wrapped and sent by our small team in Tennessee. Every handwritten note is written by a person, not a printer.</p><p class="hint">Demo note: the live store shows real photos and a short packing video here. Customer reviews appear only once there are real ones.</p></div></div></section>
   </div>`;
 }
 
@@ -469,13 +470,13 @@ const WHO = [['any','Anyone'],['her','Her'],['him','Him'],['hosts','A host']];
 const BUDGET = [['any','Any budget'],['u30','Under $30'],['30-60','$30–60'],['60','$60+']];
 function giftFinderView(q) {
   const who = q.get('who') || 'any', occ = q.get('occ') || 'any', bud = q.get('budget') || 'any';
-  const occs = [['any','Any occasion'], ...ORDERED().slice(0,4).map(k => [k, HOLIDAYS[k].name]), ['everyday','Birthday & everyday']];
+  const occs = [['any','Any occasion'], ...ORDERED().map(k => [k, HOLIDAYS[k].name]), ['everyday','Birthday & everyday']];
   const href = (k, v) => { const o = {who, occ, budget:bud}; o[k] = v; return '#/gifts?' + new URLSearchParams(o).toString(); };
   const group = (label, key, cur, opts) => `<div class="gf-q"><h3>${label}</h3><div class="chips gf-chips">${opts.map(([v,l]) => `<a class="chip" href="${href(key, v)}" aria-pressed="${cur === v}">${l}</a>`).join('')}</div></div>`;
   const inBudget = p => bud === 'any' || (bud === 'u30' ? p.price < 30 : bud === '30-60' ? p.price >= 30 && p.price <= 60 : p.price > 60);
   const order = [...ORDERED(), 'everyday'];
   const list = PRODUCTS.filter(p => (who === 'any' || p.tags.includes(who)) && (occ === 'any' || p.hol === occ) && inBudget(p))
-    .sort((a,b) => (etaInfo(a).late - etaInfo(b).late) || (order.indexOf(a.hol) - order.indexOf(b.hol)) || (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
+    .sort((a,b) => (etaInfo(a).late - etaInfo(b).late) || ((a.src === 'cn') - (b.src === 'cn')) || (order.indexOf(a.hol) - order.indexOf(b.hol)) || (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
   return `
   <section class="col-hero tinted" style="--tint:${C.butterL}"><div class="wrap">
     <p class="eyebrow">Gift Finder</p><h1>Three questions. One great gift.</h1>
@@ -487,8 +488,38 @@ function giftFinderView(q) {
     ${group('Your budget', 'budget', bud, BUDGET)}
     <div class="toolbar"><span>${list.length} gift idea${list.length === 1 ? '' : 's'}${occ !== 'any' && hDate(occ) ? ` for ${HOLIDAYS[occ].name}` : ''}</span>${who !== 'any' || occ !== 'any' || bud !== 'any' ? '<a class="link" href="#/gifts">Start over</a>' : ''}</div>
     ${list.length ? `<div class="grid">${list.map(card).join('')}</div>` : `<div class="empty"><p>Nothing matches all three yet. Try a different budget, or browse our Gift Sets.</p><a class="btn" href="${href('budget','any')}">Show any budget</a></div>`}
+    ${list.length <= 2 ? `<h3 class="gf-more">You might also like</h3><div class="grid">${PRODUCTS.filter(p => p.badge && !list.includes(p)).slice(0, 4).map(card).join('')}</div>` : ''}
     <div class="gf-help"><b>Still not sure?</b> Gift Sets come wrapped with a handwritten note. <a class="link" href="#/collection/all?f=sets">See Gift Sets</a></div>
   </div>`;
+}
+
+function holidaysView() {
+  return `<section class="col-hero tinted" style="--tint:${C.oat}"><div class="wrap"><p class="eyebrow">Plan ahead</p><h1>All holidays</h1><p>Every day that matters this year, with the date to order by.</p></div></section>
+  <div class="wrap" style="padding:30px 20px 70px"><div class="hol-grid">${ORDERED().map(calItem).join('')}</div>
+  <p style="margin-top:28px"><a class="link" href="#/collection/everyday">Everyday Celebrations</a> · <a class="link" href="#/shipping">Shipping &amp; order-by dates</a></p></div>`;
+}
+function searchView(q) {
+  const term = (q.get('q') || '').trim();
+  const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+  const TAGW = {her:'for her women', him:'for him men', hosts:'host hostess table dinner', sets:'gift set box'};
+  const hay = p => [p.name, HOLIDAYS[p.hol].name, p.line, p.details, ...p.tags.map(x => TAGW[x] || x), ...p.colors.map(c => c[0])].join(' ').toLowerCase();
+  const list = words.length ? PRODUCTS.filter(p => words.every(w => hay(p).includes(w))) : [];
+  const sugg = ['candle','linen','Christmas','gift set','vase','Halloween'];
+  return `<section class="col-hero tinted" style="--tint:${C.oat}"><div class="wrap"><p class="eyebrow">Search</p><h1>${term ? `Results for \u201c${esc(term)}\u201d` : 'What are you looking for?'}</h1>
+    <form class="search-form" data-form="search" role="search"><label class="skip" for="sq">Search</label><input id="sq" name="q" value="${esc(term)}" placeholder="Candles, linen, Christmas…"><button class="btn">Search</button></form>
+    <div class="chips search-sugg">${sugg.map(x => `<a class="chip" href="#/search?q=${encodeURIComponent(x)}">${x}</a>`).join('')}</div></div></section>
+  <div class="wrap" style="padding-bottom:70px">${!term ? '' : list.length ? `<div class="toolbar"><span>${list.length} result${list.length === 1 ? '' : 's'}</span></div><div class="grid">${list.map(card).join('')}</div>`
+    : `<div class="empty"><p>Nothing found for \u201c${esc(term)}\u201d. The Gift Finder might help.</p><a class="btn" href="#/gifts">Open the Gift Finder</a></div>`}</div>`;
+}
+function trackView(q) {
+  const no = (q.get('order') || '').trim();
+  const step = (t, d, done) => `<li class="${done ? 'done' : ''}"><b>${t}</b><small>${d}</small></li>`;
+  return `<div class="page"><h1>Track your order</h1><p>Enter your order number and email. You'll also find a tracking link in your shipping confirmation email.</p>
+  <form class="form" data-form="track"><label class="skip" for="tNo">Order number</label><input id="tNo" name="order" required placeholder="Order number, e.g. HJ1024" value="${esc(no)}"><label class="skip" for="tEmail">Email</label><input id="tEmail" type="email" required placeholder="Email used at checkout"><button class="btn">Track</button></form>
+  ${no ? `<div class="track-res"><p class="eyebrow">Demo result · Order ${esc(no)}</p><ol class="timeline">
+    ${step('Order placed', fmt(addDays(TODAY,-2)), true)}${step('Packed by hand in Tennessee', fmt(addDays(TODAY,-1)), true)}${step('Shipped with USPS', fmt(TODAY) + ' · tracking 9400 1000 0000 0000 0000 00', true)}${step('Out for delivery', 'Expected ' + fmt(addDays(TODAY,2)), false)}${step('Delivered', 'Estimated by ' + fmt(addDays(TODAY,3)), false)}
+  </ol><p>Covered by our <a class="link" href="#/shipping/promise">On-Time Promise</a>. If the package stops moving for 2 days, we'll email you first.</p></div>` : ''}
+  <p class="hint">Need help? Email hello@hueandjoy.com. A real person replies within one business day.</p></div>`;
 }
 
 function storyView() {
@@ -518,14 +549,18 @@ function shippingView(sub) {
   if (sub === 'promise') setTimeout(() => { const el = document.getElementById('promise'); if (el) el.scrollIntoView(); }, 0);
   return `<div class="page"><h1>Shipping &amp; Delivery</h1>
   <p>Every product page shows an estimated delivery date before you buy. Free US shipping on orders over $${FREE_SHIP}; otherwise from $5.95. Express from Tennessee +$${EXPRESS_FEE}.</p>
+  <h2>Shipping rates</h2>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Option</th><th>Cost</th><th>Available on</th></tr></thead><tbody>
+  <tr><td>Standard</td><td>$${STD_SHIP} · <b>free over $${FREE_SHIP}</b></td><td>All items</td></tr>
+  <tr><td>Express</td><td>+$${EXPRESS_FEE}</td><td>Items that ship from Tennessee</td></tr></tbody></table></div>
   <h2>Holiday order-by dates</h2>
   <p>These dates already include extra buffer days for carrier delays, so you're not cutting it close.</p>
-  <div class="table-wrap"><table class="table"><thead><tr><th>Holiday</th><th>Ships from TN</th><th>TN Express</th><th>US warehouse</th><th>Partner studio</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Holiday</th><th>Ships from TN</th><th>TN Express</th><th>US warehouse</th><th>Overseas partner</th></tr></thead><tbody>${rows}</tbody></table></div>
   <h2>Where your order ships from</h2>
   <div class="table-wrap"><table class="table"><thead><tr><th>Ships from</th><th>Processing</th><th>In transit</th><th>Holiday buffer</th></tr></thead><tbody>
   ${Object.values(SOURCES).map(s => `<tr><td>${s.short}</td><td>${s.proc} business day${s.proc > 1 ? 's' : ''}</td><td>${s.min}–${s.max} days</td><td>+${s.buffer} day${s.buffer > 1 ? 's' : ''}</td></tr>`).join('')}
   </tbody></table></div>
-  <p><small>From late November to Christmas Eve, carriers are busier, so we add ${PEAK_DAYS} more days to every estimate. Partner-studio items also account for the Lunar New Year closure.</small></p>
+  <p><small>From late November to Christmas Eve, carriers are busier, so we add ${PEAK_DAYS} more days to every estimate. Items from our overseas partner also account for the Lunar New Year closure.</small></p>
   <section class="promise" id="promise">
     <p class="eyebrow">Our On-Time Promise</p>
     <h2 style="margin-top:0">If we miss the day, we make it right.</h2>
@@ -539,13 +574,21 @@ function shippingView(sub) {
     <ul>
       <li>We check every tracking number daily. If a package hasn't moved for 2 days, we email you before you have to ask.</li>
       <li>If a package is lost or damaged, we reship right away, by Express from Tennessee when we can.</li>
-      <li>If a partner-studio item is running late, we try to switch it to stock in the US.</li>
+      <li>If an item from our overseas partner is running late, we try to switch it to stock in the US.</li>
     </ul>
+    <h3>The fine print</h3>
+    <ul class="fine">
+      <li>Covers orders placed by the order-by date shown for your holiday and shipped to a US address.</li>
+      <li>Not covered: an incorrect or incomplete address, a package that is refused or left unclaimed, or carrier-wide shutdowns announced by USPS or UPS (for example, severe weather). We'll still help you track and reship.</li>
+      <li>Tell us within 7 days after the holiday. One claim per order.</li>
+      <li>Store credit is valid for 12 months and can't be exchanged for cash.</li>
+    </ul>
+    <p><a class="link" href="#/track">Track your order</a></p>
   </section></div>`;
 }
 const returnsView = () => `<div class="page"><h1>Returns</h1><p>If something isn't right, you can return unused items in their original packaging within 30 days of delivery.</p><h2>How to return</h2><ol><li>Email hello@hueandjoy.com with your order number.</li><li>We'll send a prepaid return label to our Tennessee address.</li><li>Refunds are issued to your original payment method within 5 business days of arrival.</li></ol><p>Damaged on arrival? Send us a photo within 7 days and we'll replace it right away.</p></div>`;
 const faqView = () => `<div class="page"><h1>FAQ</h1>
-  ${[['When will my order arrive?','Each product shows an estimated delivery date. See Shipping & Delivery for holiday order-by dates.'],['What if my gift arrives late?','Orders placed by the order-by date are covered by our On-Time Promise: a shipping refund plus a $15 credit, or a full refund, and a printable card to give on the day.'],['Can you write the card for me?','Yes, for free. Choose "Write it for me" in your cart, tell us who it\u2019s for and the tone you like. A real person reviews every message and emails you a preview.'],['Can I send a gift directly to someone?','Yes. Enter their address at checkout. Prices are never included in the package.'],['Do you offer gift wrapping?','Tennessee-shipped items can be gift wrapped with a handwritten note for $5. Gift Sets come wrapped.'],['Do you ship outside the US?','Not yet. We hope to ship to Canada soon.']].map(([q,a]) => `<details><summary>${q}</summary><p>${esc(a)}</p></details>`).join('')}</div>`;
+  ${[['When will my order arrive?','Each product shows an estimated delivery date. See Shipping & Delivery for holiday order-by dates.'],['What if my gift arrives late?','Orders placed by the order-by date are covered by our On-Time Promise: a shipping refund plus a $15 credit, or a full refund, and a printable card to give on the day. Terms apply.'],['How much is shipping?','Standard shipping is $5.95 and free on orders over $59. Express from Tennessee is $14.'],['Where do your products ship from?','Most of our favorites ship from our packing table in Tennessee or our US warehouse. Some pieces ship directly from our overseas partner and take longer. Every product page shows where it ships from and when it will arrive.'],['How do I track my order?','Use Track your order in the menu, or the link in your shipping confirmation email.'],['Can you write the card for me?','Yes, for free. Choose "Write it for me" in your cart, tell us who it\u2019s for and the tone you like. A real person reviews every message and emails you a preview.'],['Can I send a gift directly to someone?','Yes. Enter their address at checkout. Prices are never included in the package.'],['Do you offer gift wrapping?','Tennessee-shipped items can be gift wrapped with a handwritten note for $5. Gift Sets come wrapped.'],['Do you ship outside the US?','Not yet. We hope to ship to Canada soon.']].map(([q,a]) => `<details><summary>${q}</summary><p>${esc(a)}</p></details>`).join('')}</div>`;
 const contactView = () => `<div class="page"><h1>Contact</h1><p>We're a small team and read every message. Expect a reply within one business day (Mon–Fri, 9am–5pm Central).</p><p>Email: hello@hueandjoy.com</p>
   <form class="form" data-form="contact"><label class="skip" for="cName">Name</label><input id="cName" required placeholder="Name"><label class="skip" for="cEmail">Email</label><input id="cEmail" type="email" required placeholder="Email"><label class="skip" for="cMsg">Message</label><textarea id="cMsg" rows="5" required placeholder="How can we help?"></textarea><button class="btn">Send message</button></form></div>`;
 const policyView = () => `<div class="page"><h1>Policies</h1><p>Privacy Policy and Terms of Service will be generated from Shopify's templates and reviewed before launch.</p></div>`;
@@ -581,12 +624,16 @@ function render() {
   else if (parts[0] === 'product') { const p = byId(parts[1]); pstate.qty = 1; pstate.color = p && p.colors ? p.colors[0][0] : null; html = productView(parts[1]); if (p && p.colors) title = `${p.name} — Hue & Joy`; }
   else if (parts[0] === 'shipping') html = shippingView(parts[1]);
   else if (parts[0] === 'gifts') { html = giftFinderView(q); title = 'Gift Finder — Hue & Joy'; }
+  else if (parts[0] === 'search') { html = searchView(q); title = 'Search — Hue & Joy'; }
+  else if (parts[0] === 'track') { html = trackView(q); title = 'Track your order — Hue & Joy'; }
+  else if (parts[0] === 'holidays') { html = holidaysView(); title = 'All holidays — Hue & Joy'; }
   else html = ({story:storyView, returns:returnsView, faq:faqView, contact:contactView, policy:policyView, brand:brandView}[parts[0]] || notFound)();
   document.getElementById('app').innerHTML = html;
   document.title = title;
   closeAll();
   if (path !== render.last && parts[1] !== 'promise') window.scrollTo(0,0);
   render.last = path;
+  if (parts[0] === 'search' && !q.get('q')) { const i = document.getElementById('sq'); if (i) i.focus(); }
 }
 
 document.addEventListener('click', e => {
@@ -611,7 +658,10 @@ document.addEventListener('click', e => {
     addToCart(t.dataset.id, pstate.color || 'Default', pstate.qty);
     const wrap = document.getElementById('wrap');
     if (wrap && wrap.checked) addToCart('giftwrap', 'Default', pstate.qty);
+    const pg = document.getElementById('pdpGift');
+    if (pg) { const g = giftState(); g.on = pg.checked; if (pg.checked && !g.note) g.mode = 'us'; saveGift(g); }
     openDrawer();
+    if (pg && pg.checked) setTimeout(() => { const b = document.querySelector('.gift-card-box'); if (b) b.scrollIntoView({block:'start', behavior:'smooth'}); }, 80);
   }
   if (act === 'qty') { const cart = store.cart; const l = cart[t.dataset.i]; l.qty += Number(t.dataset.d); if (l.qty < 1) cart.splice(t.dataset.i, 1); store.cart = cart; renderDrawer(); }
   if (act === 'remove') { const cart = store.cart; cart.splice(t.dataset.i, 1); store.cart = cart; renderDrawer(); }
@@ -633,6 +683,8 @@ document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]');
   if (!f) return;
   e.preventDefault();
+  if (f.dataset.form === 'search') { location.hash = '#/search?q=' + encodeURIComponent(f.q.value.trim()); return; }
+  if (f.dataset.form === 'track') { location.hash = '#/track?order=' + encodeURIComponent(f.order.value.trim()); return; }
   f.reset();
   toast(f.dataset.form === 'newsletter' ? "You're on the list. We'll remind you before every holiday." : 'Thanks! This is a demo, so the message was not sent.');
 });
